@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trip Planner</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #eeede9;
+    --text: #1a1a1a;
+    --text-secondary: #666660;
+    --text-tertiary: #999993;
+    --border: rgba(0,0,0,0.12);
+    --border-md: rgba(0,0,0,0.22);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --teal-dark: #085041;
+    --teal-mid: #1D9E75;
+    --teal-light: #5DCAA5;
+    --teal-pale: #9FE1CB;
+    --teal-bg: #E1F5EE;
+    --red-dark: #791F1F;
+    --red-mid: #E24B4A;
+    --red-light: #F09595;
+    --red-bg: #FCEBEB;
+    --gray-bg: #D3D1C7;
+    --blue-bg: #E6F1FB;
+    --blue-text: #185FA5;
+    --coral-bg: #FAECE7;
+    --coral-text: #993C1D;
+    --green-bg: #EAF3DE;
+    --green-text: #3B6D11;
+    --purple-bg: #EEEDFE;
+    --purple-text: #534AB7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --bg-secondary: #242424;
+      --bg-tertiary: #2a2a2a;
+      --text: #f0f0ee;
+      --text-secondary: #aaa9a3;
+      --text-tertiary: #666660;
+      --border: rgba(255,255,255,0.1);
+      --border-md: rgba(255,255,255,0.2);
+    }
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-tertiary); color: var(--text); min-height: 100vh; }
+
+  /* SPLASH / HOME */
+  #splash { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; text-align: center; }
+  #splash h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+  #splash p { font-size: 15px; color: var(--text-secondary); margin-bottom: 2rem; }
+  .splash-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
+
+  /* LOGIN */
+  #login-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .login-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; width: 100%; max-width: 380px; }
+  .login-card h2 { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+  .login-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 1.5rem; }
+
+  /* APP */
+  #app { display: none; }
+  .app-header { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 10; }
+  .app-header h1 { font-size: 16px; font-weight: 500; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .user-pill { font-size: 12px; background: var(--bg-secondary); border: 0.5px solid var(--border); border-radius: 99px; padding: 4px 12px; color: var(--text-secondary); }
+  .share-btn { font-size: 12px; }
+
+  .app-body { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; }
+  .tab { padding: 8px 16px; font-size: 14px; color: var(--text-secondary); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color .15s; font-family: inherit; }
+  .tab.active { color: var(--text); font-weight: 500; border-bottom-color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .panel { display: none; } .panel.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 12px; }
+  .section-hd { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; }
+
+  /* FORMS */
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  label.lbl { font-size: 13px; color: var(--text-secondary); min-width: 80px; flex-shrink: 0; }
+  input[type=text], input[type=date], textarea, select {
+    font-family: inherit; font-size: 14px; color: var(--text);
+    background: var(--bg); border: 0.5px solid var(--border-md);
+    border-radius: var(--radius); padding: 8px 10px; width: 100%;
+    outline: none; transition: border-color .15s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--text); }
+  textarea { resize: vertical; min-height: 60px; }
+  select { cursor: pointer; }
+
+  /* BUTTONS */
+  .btn { font-family: inherit; font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; transition: all .12s; border: 0.5px solid var(--border-md); background: transparent; color: var(--text); }
+  .btn:hover { background: var(--bg-secondary); }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--text); color: var(--bg); border-color: transparent; }
+  .btn-primary:hover { opacity: .85; background: var(--text); }
+  .btn-sm { font-size: 12px; padding: 5px 12px; }
+  .btn-full { width: 100%; text-align: center; display: block; }
+  .btn-danger-ghost { border-color: transparent; color: var(--text-secondary); padding: 2px 6px; font-size: 16px; line-height: 1; }
+  .btn-danger-ghost:hover { color: var(--red-mid); background: var(--red-bg); }
+
+  /* CALENDAR */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-title { font-size: 15px; font-weight: 500; }
+  .dow-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
+  .dow-cell { text-align: center; font-size: 11px; color: var(--text-secondary); padding: 4px 0; font-weight: 500; }
+  .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .day-cell { position: relative; border-radius: 6px; cursor: pointer; user-select: none; min-height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 6px; transition: transform .08s; }
+  .day-cell:hover:not(.empty) { transform: scale(1.07); z-index: 2; }
+  .day-cell.empty { cursor: default; pointer-events: none; }
+  .day-cell.today .day-num { text-decoration: underline; }
+  .day-num { font-size: 13px; font-weight: 500; line-height: 1; position: relative; z-index: 1; }
+  .day-cell.selecting { outline: 2px solid var(--text); outline-offset: -2px; }
+
+  /* TOOLTIP */
+  .tt { display: none; position: absolute; background: var(--bg); border: 0.5px solid var(--border-md); border-radius: var(--radius); padding: 8px 10px; font-size: 12px; z-index: 30; white-space: nowrap; left: 50%; transform: translateX(-50%); top: calc(100% + 4px); pointer-events: none; min-width: 130px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .day-cell:hover .tt { display: block; }
+
+  /* MODE BUTTONS */
+  .mode-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .mode-btn { font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: var(--radius); cursor: pointer; border: 0.5px solid var(--border-md); background: transparent; color: var(--text-secondary); transition: all .12s; }
+  .mode-btn.active { background: var(--text); color: var(--bg); border-color: transparent; }
+
+  /* LEGEND */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+  /* SCORES */
+  .score-bar { flex: 1; height: 5px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden; }
+  .score-fill { height: 5px; border-radius: 3px; transition: width .3s; }
+  .best-date-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid var(--border); }
+  .best-date-row:last-child { border-bottom: none; }
+
+  /* PERSON */
+  .person-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+  .person-row:last-child { border-bottom: none; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+
+  /* DEST / ACCOM */
+  .dest-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; }
+  .vote-bar-bg { background: var(--bg-secondary); border-radius: 3px; height: 5px; overflow: hidden; margin: 8px 0 4px; }
+  .vote-bar-fill { height: 5px; border-radius: 3px; background: var(--text); transition: width .3s; }
+  .vote-btn { font-family: inherit; font-size: 12px; padding: 4px 10px; border-radius: var(--radius); cursor: pointer; border: 0.5px solid var(--border-md); background: transparent; color: var(--text-secondary); transition: all .12s; }
+  .vote-btn.voted { background: var(--text); color: var(--bg); border-color: transparent; }
+  .accom-type { font-size: 11px; padding: 2px 7px; border-radius: var(--radius); font-weight: 500; }
+  .type-hotel { background: var(--blue-bg); color: var(--blue-text); }
+  .type-airbnb { background: var(--coral-bg); color: var(--coral-text); }
+  .type-hostel { background: var(--green-bg); color: var(--green-text); }
+  .type-villa { background: var(--purple-bg); color: var(--purple-text); }
+  .type-other { background: var(--bg-secondary); color: var(--text-secondary); }
+
+  /* SHARE BANNER */
+  .share-banner { background: var(--teal-bg); border: 0.5px solid var(--teal-pale); border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+  .share-url { font-size: 12px; font-family: monospace; background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 6px 10px; flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+
+  .empty-state { text-align: center; padding: 2rem; color: var(--text-tertiary); font-size: 14px; }
+
+  /* SPINNER */
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 3rem; color: var(--text-secondary); font-size: 14px; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); font-size: 13px; padding: 8px 18px; border-radius: 99px; z-index: 999; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  /* RADIO GROUP */
+  .radio-group { display: flex; gap: 14px; flex-wrap: wrap; }
+  .radio-group label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text); cursor: pointer; }
+
+  @media (max-width: 500px) {
+    .app-body { padding: 1rem .75rem; }
+    .day-cell { min-height: 36px; }
+    .day-num { font-size: 12px; }
+    .tabs { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SPLASH -->
+<div id="splash">
+  <h1>✈ Trip Planner</h1>
+  <p>Plan your group trip — availability, destinations, and accommodations all in one place.</p>
+  <div class="splash-actions">
+    <button class="btn btn-primary btn-full" onclick="createTrip()" id="create-btn">Create a new trip</button>
+    <div style="text-align:center;font-size:13px;color:var(--text-secondary)">or join via a shared link</div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2 id="login-trip-name">Join the trip</h2>
+    <p id="login-subtitle">Enter your name to continue. You'll be remembered on this device.</p>
+    <div style="margin-bottom:12px">
+      <input type="text" id="login-name-in" placeholder="Your name (e.g. Alex)" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')joinTrip()">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="joinTrip()">Join trip</button>
+    <div id="login-error" style="display:none;margin-top:10px;font-size:13px;color:var(--red-mid)"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="app-header">
+    <h1 id="header-trip-name">Trip Planner</h1>
+    <div class="header-right">
+      <span class="user-pill" id="user-pill">You</span>
+      <button class="btn btn-sm" onclick="showShareBanner()">Share link</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div id="share-banner-wrap" style="display:none">
+      <div class="share-banner">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:500;color:var(--teal-dark);margin-bottom:4px">Share this link with your group</div>
+          <div class="share-url" id="share-url-text" onclick="copyLink()"></div>
+        </div>
+        <button class="btn btn-sm" onclick="copyLink()">Copy</button>
+        <button class="btn btn-sm" onclick="document.getElementById('share-banner-wrap').style.display='none'">✕</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('avail',this)">Availability</button>
+      <button class="tab" onclick="switchTab('dest',this)">Destinations</button>
+      <button class="tab" onclick="switchTab('accom',this)">Accommodations</button>
+    </div>
+
+    <!-- AVAILABILITY -->
+    <div id="tab-avail" class="panel active">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="section-hd" style="margin:0">Your availability</div>
+          <span style="font-size:13px;color:var(--text-secondary)">Editing as <strong id="editing-as-label" style="color:var(--text)"></strong></span>
+        </div>
+        <div class="mode-btns">
+          <button class="mode-btn active" onclick="setMode('preferred',this)">Mark as preferred</button>
+          <button class="mode-btn" onclick="setMode('unavailable',this)">Mark as unavailable</button>
+          <button class="mode-btn" onclick="setMode('clear',this)">Clear dates</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Drag across dates to mark them. Unmarked = available/maybe.</div>
+
+        <div class="cal-header">
+          <button class="btn btn-sm" onclick="changeMonth(-1)">&#8249;</button>
+          <div class="cal-title" id="cal-month-label"></div>
+          <button class="btn btn-sm" onclick="changeMonth(1)">&#8250;</button>
+        </div>
+        <div class="dow-row">
+          <div class="dow-cell">Su</div><div class="dow-cell">Mo</div><div class="dow-cell">Tu</div>
+          <div class="dow-cell">We</div><div class="dow-cell">Th</div><div class="dow-cell">Fr</div><div class="dow-cell">Sa</div>
+        </div>
+        <div class="day-grid" id="cal-grid"></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--teal-light)"></div>Preferred</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--red-light)"></div>Unavailable</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--bg-secondary)"></div>Available / maybe</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-hd">Group calendar</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Hover any date to see who marked what.</div>
+        <div class="cal-header">
+          <button class="btn btn-sm" onclick="changeGroupMonth(-1)">&#8249;</button>
+          <div class="cal-title" id="group-month-label"></div>
+          <button class="btn btn-sm" onclick="changeGroupMonth(1)">&#8250;</button>
+        </div>
+        <div class="dow-row">
+          <div class="dow-cell">Su</div><div class="dow-cell">Mo</div><div class="dow-cell">Tu</div>
+          <div class="dow-cell">We</div><div class="dow-cell">Th</div><div class="dow-cell">Fr</div><div class="dow-cell">Sa</div>
+        </div>
+        <div class="day-grid" id="group-cal-grid"></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#1D9E75"></div>All prefer</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#5DCAA5"></div>Most prefer</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#9FE1CB"></div>Some prefer</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--bg-secondary)"></div>Available</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--red-light)"></div>Someone unavailable</div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="section-hd">Best date windows</div>
+          <div id="best-dates-list"><div style="font-size:13px;color:var(--text-tertiary)">Add availability to see recommendations</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-hd">Members</div>
+        <div id="member-avail-list"><div class="empty-state">No responses yet</div></div>
+      </div>
+    </div>
+
+    <!-- DESTINATIONS -->
+    <div id="tab-dest" class="panel">
+      <div class="card">
+        <div class="section-hd">Suggest a destination</div>
+        <div class="row"><label class="lbl">Destination</label><input type="text" id="dest-name-in" placeholder="e.g. Lisbon, Portugal"></div>
+        <div class="row" style="align-items:flex-start"><label class="lbl">Why go?</label><textarea id="dest-note-in" placeholder="Quick pitch..."></textarea></div>
+        <button class="btn btn-primary" onclick="addDest()">Add destination</button>
+      </div>
+      <div id="dest-list"><div class="empty-state">No destinations yet — be the first to suggest one!</div></div>
+    </div>
+
+    <!-- ACCOMMODATIONS -->
+    <div id="tab-accom" class="panel">
+      <div class="card">
+        <div class="section-hd">Add accommodation</div>
+        <div class="row"><label class="lbl">Destination</label><select id="accom-dest-sel"><option value="">— pick destination —</option></select></div>
+        <div class="row"><label class="lbl">Name / link</label><input type="text" id="accom-name-in" placeholder="Hotel name or URL"></div>
+        <div class="row"><label class="lbl">Type</label>
+          <select id="accom-type-sel"><option value="hotel">Hotel</option><option value="airbnb">Airbnb</option><option value="hostel">Hostel</option><option value="villa">Villa</option><option value="other">Other</option></select>
+        </div>
+        <div class="row"><label class="lbl">Est. price</label><input type="text" id="accom-price-in" placeholder="$120/night"></div>
+        <div class="row" style="align-items:flex-start"><label class="lbl">Notes</label><textarea id="accom-notes-in" placeholder="Sleeps 6, has a pool..." style="min-height:48px"></textarea></div>
+        <button class="btn btn-primary" onclick="addAccom()">Add accommodation</button>
+      </div>
+      <div id="accom-list"><div class="empty-state">No accommodations yet</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
+  collection, addDoc, deleteDoc, serverTimestamp, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ============================================================
+// 🔧 PASTE YOUR FIREBASE CONFIG HERE
+// ============================================================
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+// ============================================================
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ── State ────────────────────────────────────────────────────
+let tripId = null;
+let tripData = null;
+let currentUser = null;
+let allAvailability = {};
+let destinations = [];
+let accommodations = [];
+let unsubscribers = [];
+
+let calYear, calMonth, groupCalYear, groupCalMonth;
+let dragMode = 'preferred';
+let isDragging = false;
+let dragStart = null;
+let dragEnd = null;
+let saveDebounce = null;
+
+const now = new Date();
+calYear = now.getFullYear(); calMonth = now.getMonth();
+groupCalYear = now.getFullYear(); groupCalMonth = now.getMonth();
+
+const PERSON_COLORS = ['#5DCAA5','#378ADD','#EF9F27','#D4537E','#7F77DD','#D85A30','#639922','#E24B4A','#1D9E75','#BA7517'];
+const PERSON_TEXT =   ['#085041','#0C447C','#633806','#72243E','#3C3489','#712B13','#27500A','#791F1F','#04342C','#412402'];
+
+// ── Boot ─────────────────────────────────────────────────────
+window.createTrip = async function() {
+  const btn = document.getElementById('create-btn');
+  btn.textContent = 'Creating...'; btn.disabled = true;
+  try {
+    const ref = doc(collection(db, 'trips'));
+    await setDoc(ref, { name: 'Group Trip', createdAt: serverTimestamp() });
+    const newUrl = `${location.origin}${location.pathname}?trip=${ref.id}`;
+    history.replaceState({}, '', newUrl);
+    tripId = ref.id;
+    showLoginScreen();
+  } catch(e) {
+    btn.textContent = 'Create a new trip'; btn.disabled = false;
+    showError('login-error', 'Could not create trip. Check your Firebase config.');
+    console.error(e);
+  }
+};
+
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  tripId = params.get('trip');
+  if (!tripId) { document.getElementById('splash').style.display = 'flex'; return; }
+
+  // Check trip exists
+  try {
+    const snap = await getDoc(doc(db, 'trips', tripId));
+    if (!snap.exists()) { showSplashError('Trip not found. It may have been deleted.'); return; }
+    tripData = snap.data();
+  } catch(e) {
+    showSplashError('Could not connect. Check your Firebase config and Firestore rules.'); return;
+  }
+
+  // Check returning user
+  const savedUser = localStorage.getItem(`trip_user_${tripId}`);
+  if (savedUser) {
+    currentUser = savedUser;
+    launchApp();
+  } else {
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  document.getElementById('splash').style.display = 'none';
+  const ls = document.getElementById('login-screen');
+  ls.style.display = 'flex';
+  if (tripData) document.getElementById('login-trip-name').textContent = tripData.name || 'Join the trip';
+}
+
+window.joinTrip = async function() {
+  const name = document.getElementById('login-name-in').value.trim();
+  if (!name) { showError('login-error', 'Please enter your name.'); return; }
+  currentUser = name;
+  localStorage.setItem(`trip_user_${tripId}`, name);
+
+  // Register member in Firestore
+  try {
+    await setDoc(doc(db, 'trips', tripId, 'members', name), {
+      name, joinedAt: serverTimestamp()
+    }, { merge: true });
+  } catch(e) { console.error(e); }
+
+  document.getElementById('login-screen').style.display = 'none';
+  launchApp();
+};
+
+function launchApp() {
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('header-trip-name').textContent = tripData?.name || 'Group Trip';
+  document.getElementById('user-pill').textContent = currentUser;
+  document.getElementById('editing-as-label').textContent = currentUser;
+  const url = `${location.origin}${location.pathname}?trip=${tripId}`;
+  document.getElementById('share-url-text').textContent = url;
+  subscribeToData();
+  renderPersonalCal();
+  renderGroupCal();
+}
+
+// ── Firestore Subscriptions ───────────────────────────────────
+function subscribeToData() {
+  unsubscribers.forEach(u => u());
+  unsubscribers = [];
+
+  // Availability: one doc per member
+  unsubscribers.push(onSnapshot(
+    collection(db, 'trips', tripId, 'members'),
+    snap => {
+      allAvailability = {};
+      snap.forEach(d => { allAvailability[d.id] = d.data().availability || {}; });
+      renderGroupCal();
+      renderMemberAvailList();
+      renderBestDates();
+    }
+  ));
+
+  // Destinations
+  unsubscribers.push(onSnapshot(
+    query(collection(db, 'trips', tripId, 'destinations'), orderBy('createdAt')),
+    snap => {
+      destinations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderDests();
+      renderDestSel();
+      renderAccoms();
+    }
+  ));
+
+  // Accommodations
+  unsubscribers.push(onSnapshot(
+    query(collection(db, 'trips', tripId, 'accommodations'), orderBy('createdAt')),
+    snap => {
+      accommodations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAccoms();
+      renderDests();
+    }
+  ));
+}
+
+// ── Availability ─────────────────────────────────────────────
+function getMyAvail() { return allAvailability[currentUser] || {}; }
+
+function dateKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function parseKey(k) { const [y,m,d] = k.split('-').map(Number); return {y, m:m-1, d}; }
+
+function getDragRange() {
+  if (!dragStart || !dragEnd) return [];
+  const a = parseKey(dragStart), b = parseKey(dragEnd);
+  const sa = new Date(a.y,a.m,a.d), sb = new Date(b.y,b.m,b.d);
+  const start = sa<=sb?sa:sb, end = sa<=sb?sb:sa;
+  const keys = []; const cur = new Date(start);
+  while (cur<=end) { keys.push(dateKey(cur.getFullYear(),cur.getMonth(),cur.getDate())); cur.setDate(cur.getDate()+1); }
+  return keys;
+}
+
+async function flushAvailability() {
+  const avail = getMyAvail();
+  try {
+    await setDoc(
+      doc(db, 'trips', tripId, 'members', currentUser),
+      { name: currentUser, availability: avail },
+      { merge: true }
+    );
+  } catch(e) { console.error('Save failed', e); toast('Save failed — check connection'); }
+}
+
+function applyDrag() {
+  const range = getDragRange();
+  const avail = { ...getMyAvail() };
+  range.forEach(k => {
+    if (dragMode === 'clear') delete avail[k];
+    else avail[k] = dragMode;
+  });
+  allAvailability[currentUser] = avail;
+  dragStart = null; dragEnd = null;
+  renderPersonalCal();
+  renderGroupCal();
+  renderBestDates();
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(flushAvailability, 600);
+}
+
+window.setMode = function(mode, el) {
+  dragMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+};
+
+window.changeMonth = function(d) {
+  calMonth += d;
+  if (calMonth>11){calMonth=0;calYear++} if (calMonth<0){calMonth=11;calYear--}
+  renderPersonalCal();
+};
+window.changeGroupMonth = function(d) {
+  groupCalMonth += d;
+  if (groupCalMonth>11){groupCalMonth=0;groupCalYear++} if (groupCalMonth<0){groupCalMonth=11;groupCalYear--}
+  renderGroupCal();
+};
+
+function renderPersonalCal() {
+  document.getElementById('cal-month-label').textContent =
+    new Date(calYear, calMonth, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const avail = getMyAvail();
+  const todayStr = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+
+  for (let i=0;i<firstDay;i++) { const e=document.createElement('div'); e.className='day-cell empty'; grid.appendChild(e); }
+
+  for (let d=1;d<=daysInMonth;d++) {
+    const key = dateKey(calYear, calMonth, d);
+    const status = avail[key] || 'neutral';
+    const el = document.createElement('div');
+    el.className = 'day-cell' + (key===todayStr?' today':'');
+    el.dataset.key = key;
+    const bg = status==='preferred'?'#5DCAA5':status==='unavailable'?'#F09595':'var(--bg-secondary)';
+    const tc = status==='preferred'?'#085041':status==='unavailable'?'#791F1F':'var(--text-secondary)';
+    el.style.background = bg;
+    el.innerHTML = `<div class="day-num" style="color:${tc}">${d}</div>`;
+    el.addEventListener('mousedown', e=>{ e.preventDefault(); isDragging=true; dragStart=key; dragEnd=key; highlightDrag(); });
+    el.addEventListener('mouseenter', ()=>{ if(isDragging){dragEnd=key; highlightDrag();} });
+    el.addEventListener('mouseup', ()=>{ if(isDragging){isDragging=false; applyDrag();} });
+    // Touch support
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); isDragging=true; dragStart=key; dragEnd=key; highlightDrag(); }, {passive:false});
+    el.addEventListener('touchmove', e=>{ e.preventDefault(); const t=e.touches[0]; const el2=document.elementFromPoint(t.clientX,t.clientY); if(el2&&el2.dataset.key){dragEnd=el2.dataset.key; highlightDrag();} }, {passive:false});
+    el.addEventListener('touchend', ()=>{ if(isDragging){isDragging=false; applyDrag();} });
+    grid.appendChild(el);
+  }
+  document.addEventListener('mouseup', ()=>{ if(isDragging){isDragging=false; applyDrag();} }, {once:true});
+}
+
+function highlightDrag() {
+  const range = getDragRange();
+  document.querySelectorAll('#cal-grid .day-cell').forEach(c => {
+    if (range.includes(c.dataset.key)) c.classList.add('selecting');
+    else c.classList.remove('selecting');
+  });
+}
+
+function renderGroupCal() {
+  document.getElementById('group-month-label').textContent =
+    new Date(groupCalYear, groupCalMonth, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const grid = document.getElementById('group-cal-grid');
+  grid.innerHTML = '';
+  const firstDay = new Date(groupCalYear, groupCalMonth, 1).getDay();
+  const daysInMonth = new Date(groupCalYear, groupCalMonth+1, 0).getDate();
+  const members = Object.keys(allAvailability);
+  const total = members.length;
+
+  for (let i=0;i<firstDay;i++) { const e=document.createElement('div'); e.className='day-cell empty'; grid.appendChild(e); }
+
+  for (let d=1;d<=daysInMonth;d++) {
+    const key = dateKey(groupCalYear, groupCalMonth, d);
+    let preferWho=[], unavailWho=[], availWho=[];
+    members.forEach(m => {
+      const s = (allAvailability[m]||{})[key]||'neutral';
+      if(s==='preferred') preferWho.push(m);
+      else if(s==='unavailable') unavailWho.push(m);
+      else availWho.push(m);
+    });
+
+    let bg, tc;
+    if(total===0){bg='var(--bg-secondary)';tc='var(--text-secondary)';}
+    else if(unavailWho.length>0){const i=unavailWho.length/total;bg=i>=.5?'#E24B4A':'#F09595';tc=i>=.5?'#fff':'#791F1F';}
+    else if(preferWho.length===0){bg='var(--bg-secondary)';tc='var(--text-secondary)';}
+    else {
+      const r=preferWho.length/total;
+      if(r===1){bg='#1D9E75';tc='#fff';}
+      else if(r>=.6){bg='#5DCAA5';tc='#085041';}
+      else{bg='#9FE1CB';tc='#0F6E56';}
+    }
+
+    const el = document.createElement('div');
+    el.className = 'day-cell tooltip-wrap';
+    el.style.background = bg;
+    const dt = new Date(groupCalYear,groupCalMonth,d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    let ttLines = [`<strong style="color:var(--text)">${dt}</strong>`];
+    if(preferWho.length) ttLines.push(`<span style="color:#085041">Preferred: ${preferWho.join(', ')}</span>`);
+    if(availWho.length) ttLines.push(`<span style="color:var(--text-secondary)">Available: ${availWho.join(', ')}</span>`);
+    if(unavailWho.length) ttLines.push(`<span style="color:#791F1F">Unavailable: ${unavailWho.join(', ')}</span>`);
+    if(!total) ttLines.push(`<span style="color:var(--text-tertiary)">No responses yet</span>`);
+    el.innerHTML = `<div class="day-num" style="color:${tc}">${d}</div><div class="tt">${ttLines.join('<br>')}</div>`;
+    grid.appendChild(el);
+  }
+}
+
+function renderBestDates() {
+  const el = document.getElementById('best-dates-list');
+  const members = Object.keys(allAvailability);
+  if(!members.length){el.innerHTML='<div style="font-size:13px;color:var(--text-tertiary)">No availability yet</div>';return;}
+  const scores={};
+  members.forEach(m=>{
+    Object.entries(allAvailability[m]||{}).forEach(([k,s])=>{
+      if(!scores[k])scores[k]={prefer:0,unavail:0};
+      if(s==='preferred')scores[k].prefer++;
+      if(s==='unavailable')scores[k].unavail++;
+    });
+  });
+  const eligible = Object.entries(scores)
+    .filter(([k,s])=>s.unavail===0&&s.prefer>0)
+    .sort((a,b)=>b[1].prefer-a[1].prefer||a[0].localeCompare(b[0]));
+  if(!eligible.length){el.innerHTML='<div style="font-size:13px;color:var(--text-tertiary)">No conflict-free preferred dates yet</div>';return;}
+
+  const windows=[]; let wStart=null,wLast=null,wScore=0;
+  eligible.forEach(([k,s])=>{
+    const p=parseKey(k); const dt=new Date(p.y,p.m,p.d);
+    if(!wStart){wStart=k;wLast=dt;wScore=s.prefer;}
+    else{const prev=new Date(wLast);prev.setDate(prev.getDate()+1);
+      if(dt<=prev){wLast=dt;wScore=Math.min(wScore,s.prefer);}
+      else{windows.push({start:wStart,end:dateKey(wLast.getFullYear(),wLast.getMonth(),wLast.getDate()),score:wScore});wStart=k;wLast=dt;wScore=s.prefer;}
+    }
+  });
+  if(wStart)windows.push({start:wStart,end:dateKey(wLast.getFullYear(),wLast.getMonth(),wLast.getDate()),score:wScore});
+
+  const maxS=members.length;
+  const top=windows.sort((a,b)=>b.score-a.score).slice(0,5);
+  el.innerHTML=top.map(w=>{
+    const sa=parseKey(w.start),sb=parseKey(w.end);
+    const da=new Date(sa.y,sa.m,sa.d),db=new Date(sb.y,sb.m,sb.d);
+    const label=da.toLocaleDateString('en-US',{month:'short',day:'numeric'})+(w.start!==w.end?' – '+db.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'');
+    const pct=Math.round((w.score/maxS)*100);
+    const fc=pct===100?'#1D9E75':pct>=60?'#5DCAA5':'#9FE1CB';
+    return `<div class="best-date-row">
+      <div style="font-size:13px;font-weight:500;min-width:130px">${label}</div>
+      <div class="score-bar"><div class="score-fill" style="width:${pct}%;background:${fc}"></div></div>
+      <div style="font-size:12px;color:var(--text-secondary);min-width:70px;text-align:right">${w.score}/${maxS} prefer</div>
+    </div>`;
+  }).join('');
+}
+
+function renderMemberAvailList() {
+  const el = document.getElementById('member-avail-list');
+  const members = Object.keys(allAvailability);
+  if(!members.length){el.innerHTML='<div class="empty-state">No responses yet</div>';return;}
+  el.innerHTML=members.map((m,i)=>{
+    const data=allAvailability[m]||{};
+    const p=Object.values(data).filter(v=>v==='preferred').length;
+    const u=Object.values(data).filter(v=>v==='unavailable').length;
+    const isMe=m===currentUser;
+    return `<div class="person-row">
+      <div class="avatar" style="background:${PERSON_COLORS[i%10]}33;color:${PERSON_TEXT[i%10]}">${m.slice(0,2).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500">${m}${isMe?' (you)':''}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${p} preferred · ${u} unavailable</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Destinations ─────────────────────────────────────────────
+window.addDest = async function() {
+  const name = document.getElementById('dest-name-in').value.trim();
+  const note = document.getElementById('dest-note-in').value.trim();
+  if(!name){toast('Enter a destination name');return;}
+  try {
+    await addDoc(collection(db,'trips',tripId,'destinations'), {
+      name, note, suggestedBy: currentUser, votes: [], createdAt: serverTimestamp()
+    });
+    document.getElementById('dest-name-in').value='';
+    document.getElementById('dest-note-in').value='';
+  } catch(e){toast('Could not add destination');console.error(e);}
+};
+
+window.vote = async function(id, person) {
+  const dest = destinations.find(d=>d.id===id);
+  if(!dest||person!==currentUser){toast('You can only vote for yourself');return;}
+  const votes = dest.votes.includes(person) ? dest.votes.filter(v=>v!==person) : [...dest.votes, person];
+  try {
+    await updateDoc(doc(db,'trips',tripId,'destinations',id), {votes});
+  } catch(e){toast('Could not save vote');console.error(e);}
+};
+
+window.removeDest = async function(id) {
+  const dest = destinations.find(d=>d.id===id);
+  if(dest?.suggestedBy !== currentUser){toast('Only the person who suggested this can remove it');return;}
+  if(!confirm('Remove this destination?'))return;
+  try { await deleteDoc(doc(db,'trips',tripId,'destinations',id)); } catch(e){toast('Could not remove');console.error(e);}
+};
+
+function renderDests() {
+  const el = document.getElementById('dest-list');
+  if(!destinations.length){el.innerHTML='<div class="empty-state">No destinations yet — be the first to suggest one!</div>';return;}
+  const sorted=[...destinations].sort((a,b)=>(b.votes||[]).length-(a.votes||[]).length);
+  const maxV=Math.max(...sorted.map(d=>(d.votes||[]).length),1);
+  el.innerHTML=sorted.map((d,i)=>{
+    const votes=d.votes||[];
+    const pct=Math.round((votes.length/maxV)*100);
+    const myVote=votes.includes(currentUser);
+    const accoms=accommodations.filter(a=>a.destId===d.id);
+    const accomHtml=accoms.length?accoms.map(a=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid var(--border)">
+      <div><div style="font-size:13px;font-weight:500">${a.name}</div><div style="font-size:12px;color:var(--text-secondary)">${a.suggestedBy?'by '+a.suggestedBy:''}${a.price?' · '+a.price:''}</div></div>
+      <div style="display:flex;align-items:center;gap:6px"><span class="accom-type type-${a.type}">${a.type}</span>${a.suggestedBy===currentUser?`<button class="btn btn-danger-ghost" onclick="removeAccom('${a.id}')">×</button>`:''}</div>
+    </div>`).join(''):`<div style="font-size:12px;color:var(--text-tertiary);padding:4px 0">No accommodations yet</div>`;
+    const canRemove=d.suggestedBy===currentUser;
+    return `<div class="dest-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:500">${i===0&&votes.length>0?'★ ':''}${d.name}</div>
+          ${d.suggestedBy?`<div style="font-size:12px;color:var(--text-secondary)">by ${d.suggestedBy}</div>`:''}
+          ${d.note?`<div style="font-size:13px;color:var(--text-secondary);margin-top:3px">${d.note}</div>`:''}
+        </div>
+        ${canRemove?`<button class="btn btn-danger-ghost" onclick="removeDest('${d.id}')">×</button>`:''}
+      </div>
+      <div class="vote-bar-bg"><div class="vote-bar-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">${votes.length} vote${votes.length!==1?'s':''}${votes.length?' · '+votes.join(', '):''}</div>
+      <div style="margin-bottom:10px">
+        <button class="vote-btn ${myVote?'voted':''}" onclick="vote('${d.id}','${currentUser}')">
+          ${myVote?'✓ You voted':'Vote for this'}
+        </button>
+      </div>
+      <div style="border-top:0.5px solid var(--border);padding-top:8px">
+        <div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:5px">Accommodations</div>
+        ${accomHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Accommodations ───────────────────────────────────────────
+function renderDestSel() {
+  const sel = document.getElementById('accom-dest-sel');
+  const cur = sel.value;
+  sel.innerHTML='<option value="">— pick destination —</option>'+
+    destinations.map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+  sel.value=cur;
+}
+
+window.addAccom = async function() {
+  const destId = document.getElementById('accom-dest-sel').value;
+  const name = document.getElementById('accom-name-in').value.trim();
+  const type = document.getElementById('accom-type-sel').value;
+  const price = document.getElementById('accom-price-in').value.trim();
+  const notes = document.getElementById('accom-notes-in').value.trim();
+  if(!name||!destId){toast('Pick a destination and enter a name');return;}
+  try {
+    await addDoc(collection(db,'trips',tripId,'accommodations'),{
+      destId, name, type, price, notes, suggestedBy: currentUser, createdAt: serverTimestamp()
+    });
+    document.getElementById('accom-name-in').value='';
+    document.getElementById('accom-price-in').value='';
+    document.getElementById('accom-notes-in').value='';
+  } catch(e){toast('Could not add accommodation');console.error(e);}
+};
+
+window.removeAccom = async function(id) {
+  const a = accommodations.find(a=>a.id===id);
+  if(a?.suggestedBy!==currentUser){toast('Only the person who added this can remove it');return;}
+  try { await deleteDoc(doc(db,'trips',tripId,'accommodations',id)); } catch(e){toast('Could not remove');console.error(e);}
+};
+
+function renderAccoms() {
+  const el = document.getElementById('accom-list');
+  if(!accommodations.length){el.innerHTML='<div class="empty-state">No accommodations yet</div>';return;}
+  const byDest={};
+  accommodations.forEach(a=>{if(!byDest[a.destId])byDest[a.destId]=[];byDest[a.destId].push(a);});
+  el.innerHTML=Object.entries(byDest).map(([did,accoms])=>{
+    const dest=destinations.find(d=>d.id===did);
+    return `<div class="card">
+      <div class="section-hd">${dest?dest.name:'Unknown destination'}</div>
+      ${accoms.map(a=>`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${a.name}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${a.suggestedBy?'by '+a.suggestedBy:''}${a.price?' · '+a.price:''}${a.notes?' · '+a.notes:''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span class="accom-type type-${a.type}">${a.type}</span>
+          ${a.suggestedBy===currentUser?`<button class="btn btn-danger-ghost" onclick="removeAccom('${a.id}')">×</button>`:''}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── UI Helpers ───────────────────────────────────────────────
+window.switchTab = function(name, el) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  el.classList.add('active');
+};
+
+window.showShareBanner = function() {
+  const w = document.getElementById('share-banner-wrap');
+  w.style.display = w.style.display==='none'?'block':'none';
+};
+
+window.copyLink = function() {
+  const url = `${location.origin}${location.pathname}?trip=${tripId}`;
+  navigator.clipboard.writeText(url).then(()=>toast('Link copied!')).catch(()=>{
+    prompt('Copy this link:', url);
+  });
+};
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.style.display='block'; el.textContent=msg;
+}
+
+function showSplashError(msg) {
+  const s = document.getElementById('splash');
+  s.innerHTML=`<h1>✈ Trip Planner</h1><p style="color:var(--red-mid)">${msg}</p><button class="btn" onclick="location.href=location.pathname">Go back</button>`;
+  s.style.display='flex';
+}
+
+// ── Start ─────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

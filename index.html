@@ -207,11 +207,29 @@
 <div id="login-screen">
   <div class="login-card">
     <h2 id="login-trip-name">Join the trip</h2>
-    <p id="login-subtitle">Enter your name to continue. You'll be remembered on this device.</p>
-    <div style="margin-bottom:12px">
-      <input type="text" id="login-name-in" placeholder="Your name (e.g. Alex)" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')joinTrip()">
+    <p id="login-subtitle">Enter your name to get started.</p>
+
+    <!-- Step 1: name -->
+    <div id="login-step-name">
+      <input type="text" id="login-name-in" placeholder="Your name (e.g. Alex)" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')submitName()">
+      <button class="btn btn-primary btn-full" onclick="submitName()">Continue</button>
     </div>
-    <button class="btn btn-primary btn-full" onclick="joinTrip()">Join trip</button>
+
+    <!-- Step 2a: new user — set a PIN -->
+    <div id="login-step-newpin" style="display:none">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Welcome! Choose a 4-digit PIN so you can log back in from any device.</p>
+      <input type="password" id="login-pin-new" placeholder="Choose a 4-digit PIN" maxlength="4" inputmode="numeric" pattern="[0-9]*" style="margin-bottom:8px;letter-spacing:6px;font-size:18px" onkeydown="if(event.key==='Enter')submitNewPin()">
+      <button class="btn btn-primary btn-full" onclick="submitNewPin()">Set PIN &amp; join</button>
+    </div>
+
+    <!-- Step 2b: returning user — enter PIN -->
+    <div id="login-step-existingpin" style="display:none">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Welcome back! Enter your PIN to continue.</p>
+      <input type="password" id="login-pin-existing" placeholder="Your 4-digit PIN" maxlength="4" inputmode="numeric" pattern="[0-9]*" style="margin-bottom:8px;letter-spacing:6px;font-size:18px" onkeydown="if(event.key==='Enter')submitExistingPin()">
+      <button class="btn btn-primary btn-full" onclick="submitExistingPin()">Sign in</button>
+      <button class="btn btn-full" style="margin-top:8px" onclick="goBackToName()">← Use a different name</button>
+    </div>
+
     <div id="login-error" style="display:none;margin-top:10px;font-size:13px;color:var(--red-mid)"></div>
   </div>
 </div>
@@ -221,7 +239,7 @@
   <div class="app-header">
     <h1 id="header-trip-name">Trip Planner</h1>
     <div class="header-right">
-      <span class="user-pill" id="user-pill">You</span>
+      <span class="user-pill" id="user-pill" style="cursor:pointer" title="Sign out" onclick="signOut()">You ↩</span>
       <button class="btn btn-sm" onclick="showShareBanner()">Share link</button>
     </div>
   </div>
@@ -348,13 +366,12 @@ import {
 // 🔧 PASTE YOUR FIREBASE CONFIG HERE
 // ============================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyCxBESQ45F-jknGLxzHH6pzulp2Xg0pUsI",
-  authDomain: "boys--trip-planner-valpha01.firebaseapp.com",
-  projectId: "boys--trip-planner-valpha01",
-  storageBucket: "boys--trip-planner-valpha01.firebasestorage.app",
-  messagingSenderId: "58405906107",
-  appId: "1:58405906107:web:fddf382217da0a95f72b9e",
-  measurementId: "G-VXBR1GN7KR"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 // ============================================================
 
@@ -384,6 +401,12 @@ groupCalYear = now.getFullYear(); groupCalMonth = now.getMonth();
 const PERSON_COLORS = ['#5DCAA5','#378ADD','#EF9F27','#D4537E','#7F77DD','#D85A30','#639922','#E24B4A','#1D9E75','#BA7517'];
 const PERSON_TEXT =   ['#085041','#0C447C','#633806','#72243E','#3C3489','#712B13','#27500A','#791F1F','#04342C','#412402'];
 
+// ── Simple hash (not cryptographic, fine for friend-group PINs) ──
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + 'tripplanner_salt'));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 // ── Boot ─────────────────────────────────────────────────────
 window.createTrip = async function() {
   const btn = document.getElementById('create-btn');
@@ -394,6 +417,7 @@ window.createTrip = async function() {
     const newUrl = `${location.origin}${location.pathname}?trip=${ref.id}`;
     history.replaceState({}, '', newUrl);
     tripId = ref.id;
+    tripData = { name: 'Group Trip' };
     showLoginScreen();
   } catch(e) {
     btn.textContent = 'Create a new trip'; btn.disabled = false;
@@ -407,7 +431,6 @@ async function boot() {
   tripId = params.get('trip');
   if (!tripId) { document.getElementById('splash').style.display = 'flex'; return; }
 
-  // Check trip exists
   try {
     const snap = await getDoc(doc(db, 'trips', tripId));
     if (!snap.exists()) { showSplashError('Trip not found. It may have been deleted.'); return; }
@@ -416,7 +439,7 @@ async function boot() {
     showSplashError('Could not connect. Check your Firebase config and Firestore rules.'); return;
   }
 
-  // Check returning user
+  // Returning user on this device?
   const savedUser = localStorage.getItem(`trip_user_${tripId}`);
   if (savedUser) {
     currentUser = savedUser;
@@ -428,32 +451,94 @@ async function boot() {
 
 function showLoginScreen() {
   document.getElementById('splash').style.display = 'none';
-  const ls = document.getElementById('login-screen');
-  ls.style.display = 'flex';
+  document.getElementById('login-screen').style.display = 'flex';
   if (tripData) document.getElementById('login-trip-name').textContent = tripData.name || 'Join the trip';
+  showStep('name');
 }
 
-window.joinTrip = async function() {
+function showStep(step) {
+  document.getElementById('login-step-name').style.display = step==='name' ? 'block' : 'none';
+  document.getElementById('login-step-newpin').style.display = step==='newpin' ? 'block' : 'none';
+  document.getElementById('login-step-existingpin').style.display = step==='existingpin' ? 'block' : 'none';
+  clearLoginError();
+}
+
+window.goBackToName = function() { showStep('name'); };
+
+window.submitName = async function() {
   const name = document.getElementById('login-name-in').value.trim();
   if (!name) { showError('login-error', 'Please enter your name.'); return; }
-  currentUser = name;
-  localStorage.setItem(`trip_user_${tripId}`, name);
 
-  // Register member in Firestore
+  // Check if this name already exists in the trip
   try {
-    await setDoc(doc(db, 'trips', tripId, 'members', name), {
-      name, joinedAt: serverTimestamp()
-    }, { merge: true });
-  } catch(e) { console.error(e); }
-
-  document.getElementById('login-screen').style.display = 'none';
-  launchApp();
+    const snap = await getDoc(doc(db, 'trips', tripId, 'members', name));
+    if (snap.exists() && snap.data().pinHash) {
+      // Returning user — ask for PIN
+      showStep('existingpin');
+    } else {
+      // New user — ask them to set a PIN
+      showStep('newpin');
+    }
+  } catch(e) {
+    showError('login-error', 'Could not reach the database. Check your connection.');
+    console.error(e);
+  }
 };
+
+window.submitNewPin = async function() {
+  const name = document.getElementById('login-name-in').value.trim();
+  const pin = document.getElementById('login-pin-new').value.trim();
+  if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+    showError('login-error', 'PIN must be exactly 4 digits.');
+    return;
+  }
+  try {
+    const pinHash = await hashPin(pin);
+    await setDoc(doc(db, 'trips', tripId, 'members', name), {
+      name, pinHash, joinedAt: serverTimestamp(), availability: {}
+    }, { merge: true });
+    currentUser = name;
+    localStorage.setItem(`trip_user_${tripId}`, name);
+    document.getElementById('login-screen').style.display = 'none';
+    launchApp();
+  } catch(e) {
+    showError('login-error', 'Could not save. Check your connection.');
+    console.error(e);
+  }
+};
+
+window.submitExistingPin = async function() {
+  const name = document.getElementById('login-name-in').value.trim();
+  const pin = document.getElementById('login-pin-existing').value.trim();
+  if (!pin) { showError('login-error', 'Please enter your PIN.'); return; }
+  try {
+    const snap = await getDoc(doc(db, 'trips', tripId, 'members', name));
+    const stored = snap.data()?.pinHash;
+    const entered = await hashPin(pin);
+    if (entered !== stored) {
+      showError('login-error', 'Incorrect PIN. Try again.');
+      document.getElementById('login-pin-existing').value = '';
+      return;
+    }
+    currentUser = name;
+    localStorage.setItem(`trip_user_${tripId}`, name);
+    document.getElementById('login-screen').style.display = 'none';
+    launchApp();
+  } catch(e) {
+    showError('login-error', 'Could not verify PIN. Check your connection.');
+    console.error(e);
+  }
+};
+
+function clearLoginError() {
+  const el = document.getElementById('login-error');
+  el.style.display = 'none'; el.textContent = '';
+}
 
 function launchApp() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('header-trip-name').textContent = tripData?.name || 'Group Trip';
-  document.getElementById('user-pill').textContent = currentUser;
+  document.getElementById('user-pill').textContent = currentUser + ' ↩';
   document.getElementById('editing-as-label').textContent = currentUser;
   const url = `${location.origin}${location.pathname}?trip=${tripId}`;
   document.getElementById('share-url-text').textContent = url;
@@ -855,6 +940,12 @@ window.copyLink = function() {
   navigator.clipboard.writeText(url).then(()=>toast('Link copied!')).catch(()=>{
     prompt('Copy this link:', url);
   });
+};
+
+window.signOut = function() {
+  if (!confirm(`Sign out as ${currentUser}?`)) return;
+  localStorage.removeItem(`trip_user_${tripId}`);
+  location.reload();
 };
 
 function toast(msg) {
